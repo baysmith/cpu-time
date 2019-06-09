@@ -4,6 +4,8 @@ use std::marker::PhantomData;
 
 use winapi::um::processthreadsapi::{GetProcessTimes, GetThreadTimes};
 use winapi::um::processthreadsapi::{GetCurrentProcess, GetCurrentThread};
+use winapi::um::processthreadsapi::OpenProcess;
+use winapi::um::winnt::PROCESS_QUERY_INFORMATION;
 use winapi::shared::minwindef::FILETIME;
 
 
@@ -12,7 +14,10 @@ use winapi::shared::minwindef::FILETIME;
 /// This is an opaque type similar to `std::time::Instant`.
 /// Use `elapsed()` or `duration_since()` to get meaningful time deltas.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
-pub struct ProcessTime(Duration);
+pub struct ProcessTime {
+    duration: Duration,
+    process: winapi::um::winnt::HANDLE,
+}
 
 
 /// CPU Time Used by The Current Thread
@@ -47,7 +52,7 @@ fn zero() -> FILETIME {
 }
 
 impl ProcessTime {
-    /// Get current CPU time used by a process process
+    /// Get current CPU time used by the current process
     ///
     /// # Panics
     ///
@@ -62,15 +67,46 @@ impl ProcessTime {
         if ok == 0 {
             panic!("Can't get process times");
         }
-        return ProcessTime(to_duration(kernel_time, user_time));
+        return ProcessTime { duration: to_duration(kernel_time, user_time), process };
+    }
+    /// Get current CPU time used by a given process
+    ///
+    /// # Panics
+    ///
+    /// If `GetProcessTimes` fails (not sure if it can happen)
+    pub fn now_for(id: u32) -> ProcessTime {
+        let mut kernel_time = zero();
+        let mut user_time = zero();
+        let process = unsafe {
+            OpenProcess(PROCESS_QUERY_INFORMATION, false as i32, id)
+        };
+        let ok = unsafe { GetProcessTimes(process,
+            &mut zero(), &mut zero(),
+            &mut kernel_time, &mut user_time) };
+        if ok == 0 {
+            panic!("Can't get process times");
+        }
+        return ProcessTime{ duration: to_duration(kernel_time, user_time), process };
     }
     /// Returns the amount of CPU time used from the previous timestamp to now.
     pub fn elapsed(&self) -> Duration {
-        ProcessTime::now().duration_since(*self)
+        let mut kernel_time = zero();
+        let mut user_time = zero();
+        let ok = unsafe { GetProcessTimes(self.process,
+            &mut zero(), &mut zero(),
+            &mut kernel_time, &mut user_time) };
+        if ok == 0 {
+            panic!("Can't get process times");
+        }
+        to_duration(kernel_time, user_time) - self.duration
     }
     /// Returns the amount of CPU time used from the previous timestamp.
     pub fn duration_since(&self, timestamp: ProcessTime) -> Duration {
-        self.0 - timestamp.0
+        self.duration - timestamp.duration
+    }
+    /// Returns the amount of CPU time used.
+    pub fn duration(&self) -> Duration {
+        self.duration
     }
 }
 
