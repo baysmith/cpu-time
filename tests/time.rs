@@ -1,10 +1,7 @@
-extern crate cpu_time;
-
-use std::time::Duration;
 use std::thread::sleep;
+use std::time::Duration;
 
 use cpu_time::{ProcessTime, ThreadTime};
-
 
 #[test]
 fn process_time() {

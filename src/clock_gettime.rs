@@ -1,10 +1,9 @@
-use std::time::Duration;
-use std::rc::Rc;
 use std::marker::PhantomData;
+use std::rc::Rc;
+use std::time::Duration;
 
 use libc::{clock_gettime, timespec};
 use libc::{CLOCK_PROCESS_CPUTIME_ID, CLOCK_THREAD_CPUTIME_ID};
-
 
 /// CPU Time Used by The Whole Process
 ///
@@ -22,10 +21,11 @@ pub struct ProcessTime(Duration);
 /// to easy to mess up times from different threads. However, you can freely
 /// send Duration's returned by `elapsed()` and `duration_since()`.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
-pub struct ThreadTime(Duration,
-                      // makes type non-sync and non-send
-                      PhantomData<Rc<()>>);
-
+pub struct ThreadTime(
+    Duration,
+    // makes type non-sync and non-send
+    PhantomData<Rc<()>>,
+);
 
 impl ProcessTime {
     /// Get current CPU time used by a process process
@@ -39,8 +39,7 @@ impl ProcessTime {
             tv_sec: 0,
             tv_nsec: 0,
         };
-        if unsafe { clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &mut time) } == -1
-        {
+        if unsafe { clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &mut time) } == -1 {
             panic!("Process CPU time is not supported");
         }
         ProcessTime(Duration::new(time.tv_sec as u64, time.tv_nsec as u32))
@@ -67,12 +66,13 @@ impl ThreadTime {
             tv_sec: 0,
             tv_nsec: 0,
         };
-        if unsafe { clock_gettime(CLOCK_THREAD_CPUTIME_ID, &mut time) } == -1
-        {
+        if unsafe { clock_gettime(CLOCK_THREAD_CPUTIME_ID, &mut time) } == -1 {
             panic!("Process CPU time is not supported");
         }
-        ThreadTime(Duration::new(time.tv_sec as u64, time.tv_nsec as u32),
-                   PhantomData)
+        ThreadTime(
+            Duration::new(time.tv_sec as u64, time.tv_nsec as u32),
+            PhantomData,
+        )
     }
     /// Returns the amount of CPU time used by the current thread
     /// from the previous timestamp to now.
